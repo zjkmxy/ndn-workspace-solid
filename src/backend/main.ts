@@ -15,6 +15,7 @@ import { base64ToBytes, encodeKey as encodePath, Signal as BackendSignal, openRo
 import { Decoder } from '@ndn/tlv'
 import { Workspace } from '@ucla-irl/ndnts-aux/workspace'
 import toast from 'solid-toast'
+import { WebBluetoothTransport } from '@ndn/web-bluetooth-transport'
 
 export const UseAutoAnnouncement = false
 
@@ -36,6 +37,7 @@ export let rootDoc: RootDocStore | undefined
 
 export let listener: PeerJsListener | undefined = undefined
 export let nfdWsFace: FwFace | undefined = undefined
+export let bleFace: FwFace | undefined = undefined
 const connState = new BackendSignal<ConnState>('DISCONNECTED')
 export let nfdCmdSigner: Signer = digestSigning
 export let nfdCertificate: Certificate | undefined
@@ -94,6 +96,34 @@ async function disconnectPeerJs() {
   listener = undefined
 }
 
+async function connectBleIncompat() {
+  if (listener === undefined) {
+    bleFace = await WebBluetoothTransport.createFace({
+      lp: { mtu: 512 },
+    })
+    // The automatic announcement is turned off by default to gain a finer control.
+    // See checkPrefixRegistration for details.
+    if (UseAutoAnnouncement) {
+      nfdmgmt.enableNfdPrefixReg(bleFace, {
+        signer: nfdCmdSigner,
+        // TODO: Do I need to set `preloadCertName`?
+      })
+    }
+    commandPrefix = nfdmgmt.getPrefix(false)
+    await checkPrefixRegistration(false)
+    return bleFace
+  } else {
+    console.error('Trying to reconnect to an existing BLE face')
+    toast.error('Trying to reconnect to an existing BLE face')
+  }
+}
+
+async function disconnectBleIncompat() {
+  await checkPrefixRegistration(true)
+  bleFace?.close()
+  bleFace = undefined
+}
+
 export const connectionStatus = () => connState.value
 export const connectionStatusSig = () => connState
 
@@ -108,6 +138,9 @@ export async function disconnect() {
   }
   if (nfdWsFace !== undefined) {
     await disconnectNfdWs()
+  }
+  if (bleFace !== undefined) {
+    await disconnectBleIncompat()
   }
   connState.value = 'DISCONNECTED'
 
@@ -172,6 +205,15 @@ export async function connect(config: connections.Config) {
   } else if (config.kind === 'peerJs') {
     try {
       await connectPeerJs(config, true)
+    } catch (err) {
+      console.error('Failed to connect:', err)
+      toast.error('Failed to connect, see console for details')
+      connState.value = 'DISCONNECTED'
+      return
+    }
+  } else if (config.kind === 'ble') {
+    try {
+      await connectBleIncompat()
     } catch (err) {
       console.error('Failed to connect:', err)
       toast.error('Failed to connect, see console for details')

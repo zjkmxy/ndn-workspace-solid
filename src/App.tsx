@@ -23,11 +23,17 @@ function App() {
           <div style={{ 'font-weight': 300 }}>{config.host}</div>
         </div>
       )
-    } else {
+    } else if (config.kind === 'nfdWs') {
       return (
         <div>
           <div>Connected to NDN forwarder</div>
           <div style={{ 'font-weight': 300 }}>{config.uri}</div>
+        </div>
+      )
+    } else if (config.kind === 'ble') {
+      return (
+        <div>
+          <div>Connected to BLE YaNFD</div>
         </div>
       )
     }

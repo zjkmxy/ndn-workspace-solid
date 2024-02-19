@@ -1,4 +1,4 @@
-import { Stack } from '@suid/material'
+import { Button, Stack } from '@suid/material'
 import NfdWebsocket from './nfd-websocket'
 import PeerJs from './peer-js'
 import NdnTestbed from './ndn-testbed'
@@ -20,6 +20,17 @@ export default function Connect() {
       <NdnTestbedOidc onAdd={onAdd} />
       <NfdWebsocket onAdd={onAdd} />
       <PeerJs onAdd={onAdd} />
+      <Button
+        variant="text"
+        color="secondary"
+        onClick={() =>
+          onAdd({
+            kind: 'ble',
+          })
+        }
+      >
+        BLE (Imcompatible)
+      </Button>
     </Stack>
   )
 }
